@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XCEEDJS | Verification Report Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/jspdf@latest/dist/jspdf.umd.min.js"></script>
+    <script src="https://unpkg.com/jspdf-autotable@3.5.23/dist/jspdf.plugin.autotable.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #F9FAFB; }
+        h1, h2, h3 { font-family: 'Poppins', sans-serif; color: #1F2937; }
+        .xceed-purple { color: #6C2BD9; }
+        .btn-primary { background-color: #6C2BD9; color: #FFFFFF; border-radius: 8px; padding: 1rem 2rem; font-weight: 600; transition: all 0.3s ease; }
+        .btn-primary:hover:not(:disabled) { background-color: #5824b3; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="loader" class="hidden fixed inset-0 bg-white bg-opacity-80 flex-col items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-600"></div>
+        <p id="loader-message" class="mt-4 text-lg font-semibold">Processing...</p>
+    </div>
+
+    <div class="flex flex-col min-h-screen">
+        <header class="bg-white shadow-sm sticky top-0 z-40">
+            <nav class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex-shrink-0">
+                        <img src="https://placehold.co/120x40/6c2bd9/FFFFFF?text=XCEEDJS" alt="XCEEDJS Logo" class="h-10">
+                    </div>
+                    <div class="hidden sm:block">
+                        <a href="#contact" class="text-sm font-semibold text-gray-600 hover:text-xceed-purple transition">Contact Us</a>
+                    </div>
+                </div>
+            </nav>
+        </header>
+
+        <main class="flex-grow bg-gray-50 py-12 sm:py-16">
+            <div class="w-full max-w-lg mx-auto text-center px-4">
+                <div id="main-content-card" class="bg-white p-8 rounded-xl shadow-lg">
+                     <!-- Step 1: Upload -->
+                     <div id="upload-section">
+                        <h1 class="text-2xl font-bold">Verification Report Generator</h1>
+                        <p class="text-gray-500 mb-6">Optimized for black & white printing.</p>
+                        <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-10 cursor-pointer hover:border-purple-500 transition-all">
+                            <p class="text-lg">Drop your .xlsx file here or <span class="font-semibold xceed-purple">click to upload</span></p>
+                            <input type="file" id="file-input" class="hidden" accept=".xlsx, .xls">
+                        </div>
+                    </div>
+                    <!-- Step 2: Mapping -->
+                    <div id="mapping-section" class="hidden text-left">
+                        <h2 class="text-xl font-bold mb-4 text-center">Map Your Columns</h2>
+                        <p class="text-center text-sm text-gray-500 mb-6">We've automatically matched your columns. Please review and confirm.</p>
+                        <div id="mapper-ui" class="space-y-4 max-h-64 overflow-y-auto pr-2"></div>
+                        <button id="confirm-mapping-btn" class="btn-primary w-full text-lg mt-6">Confirm Mapping</button>
+                    </div>
+                     <!-- Step 3: Details & Download -->
+                     <div id="processing-section" class="hidden">
+                        <p class="text-lg font-semibold mb-4" id="file-name"></p>
+                        <div class="space-y-3 mb-6">
+                             <input type="text" id="village-input" placeholder="Enter Village Name*" class="w-full p-3 border rounded">
+                             <input type="text" id="block-input" placeholder="Enter Block Name*" class="w-full p-3 border rounded">
+                             <input type="text" id="district-input" placeholder="Enter District Name*" class="w-full p-3 border rounded">
+                        </div>
+
+                        <div class="flex items-center justify-center gap-4 my-6">
+                            <span class="text-sm font-medium text-gray-700">Footer on each page</span>
+                            <label for="footer-placement" class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="footer-placement" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                            </label>
+                            <span class="text-sm font-medium text-gray-700">Footer on last page only</span>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row gap-4">
+                            <button id="download-pdf-btn" class="btn-primary w-full text-lg">Download PDF Report</button>
+                        </div>
+                        <button id="reset-btn" class="mt-4 text-sm text-gray-500 hover:underline">Start Over</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer id="contact" class="bg-gray-800 text-white py-12">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <h3 class="text-2xl font-bold">Want more such websites?</h3>
+                <p class="text-gray-400 mt-2">Let's build something amazing together.</p>
+                <a href="mailto:Xceedjs@gmail.com" class="inline-block bg-xceed-purple text-white font-semibold py-3 px-6 rounded-lg mt-6 hover:bg-purple-700 transition">Contact Us</a>
+
+                <div class="flex justify-center items-center gap-6 mt-8">
+                    <a href="#" title="Instagram"><img src="https://placehold.co/24x24/ffffff/1F2937?text=in" alt="Instagram" class="h-6 w-6"></a>
+                    <a href="#" title="WhatsApp"><img src="https://placehold.co/24x24/ffffff/1F2937?text=wa" alt="WhatsApp" class="h-6 w-6"></a>
+                    <a href="#" title="Phone"><img src="https://placehold.co/24x24/ffffff/1F2937?text=ph" alt="Phone" class="h-6 w-6"></a>
+                </div>
+
+                <div class="border-t border-gray-700 mt-8 pt-6 text-sm text-gray-500">
+                    <p>&copy; 2025 XCEEDJS. All Rights Reserved.</p>
+                    <p class="mt-1">Bangalore, Karnataka, India</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+    <script>
+        let excelData = null;
+        let userColumns = [];
+        let columnMapping = {};
+        const templateColumns = [
+            { key: 'srNo', label: 'Sr. Number', mapped: true, aliases: ['sr', 'srno', 'sr.no.', 'serialnumber'] },
+            { key: 'beneficiaryName', label: 'Name of Beneficiary', mapped: true, aliases: ['workername', 'beneficiaryname', 'name'] },
+            { key: 'regId', label: 'Registration ID', mapped: true, aliases: ['username', 'registrationid', 'regno'] },
+            { key: 'verifyingAuthority', label: 'Name of Verifying Authority', mapped: true, aliases: ['decisionby', 'authority'] },
+            { key: 'periodFrom', label: 'Period From (Date)', mapped: true, isDate: true, aliases: ['workslipslotfrom', 'fromdate', 'startdate'] },
+            { key: 'periodTo', label: 'Period To (Date)', mapped: true, isDate: true, aliases: ['workslipslotto', 'todate', 'enddate'] },
+            { key: 'employerName', label: 'Employer Name', mapped: true, aliases: ['Employer Name','employer'] },
+            { key: 'employerMobile', label: 'Employer Mobile Number', mapped: true, aliases: ['employerphone', 'mobile'] },
+            { key: 'verifiedOnSite', label: 'Verified on Site (Y/N)', mapped: false },
+            { key: 'actualEngagement', label: 'Actual Engagement (Y/N)', mapped: false },
+            { key: 'worksiteExists', label: 'Worksite Exists (Y/N)', mapped: false },
+            { key: 'discrepancies', label: 'Discrepancies Observed', mapped: false },
+            { key: 'remarks', label: 'Remarks', mapped: false },
+            { key: 'sign', label: 'Sign', mapped: false }
+        ];
+        
+        const getEl = id => document.getElementById(id);
+
+        function init() {
+            getEl('drop-zone').onclick = () => getEl('file-input').click();
+            getEl('file-input').onchange = e => e.target.files.length && handleFile(e.target.files[0]);
+            getEl('confirm-mapping-btn').onclick = confirmMapping;
+            getEl('download-pdf-btn').onclick = generatePdf;
+            getEl('reset-btn').onclick = () => window.location.reload();
+        }
+
+        async function handleFile(file) {
+            showLoader('Reading your Excel file...');
+            try {
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data, { cellDates: true });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                excelData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                if (!excelData || excelData.length === 0) throw new Error("Excel sheet is empty.");
+                userColumns = Object.keys(excelData[0]);
+                
+                getEl('file-name').textContent = `File ready: ${file.name}`;
+                populateColumnMapper();
+                getEl('upload-section').classList.add('hidden');
+                getEl('mapping-section').classList.remove('hidden');
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            } finally {
+                hideLoader();
+            }
+        }
+
+        function populateColumnMapper() {
+            const mapperUi = getEl('mapper-ui');
+            const mappableColumns = templateColumns.filter(c => c.mapped);
+            const normalize = str => str.toLowerCase().replace(/[\s_().-]/g, '');
+
+            mapperUi.innerHTML = mappableColumns.map(tCol => {
+                const options = userColumns.map(uCol => `<option value="${uCol}">${uCol}</option>`).join('');
+                return `<div class="grid grid-cols-2 items-center gap-4"><label class="font-semibold text-sm text-right">${tCol.label}:</label><select data-key="${tCol.key}" class="w-full p-2 border rounded text-sm"><option value="">-- Not Mapped --</option>${options}</select></div>`;
+            }).join('');
+            
+            mappableColumns.forEach(tCol => {
+                const normalizedAliases = tCol.aliases.map(normalize);
+                const bestMatch = userColumns.find(uCol => normalizedAliases.includes(normalize(uCol)));
+                if (bestMatch) {
+                    mapperUi.querySelector(`select[data-key="${tCol.key}"]`).value = bestMatch;
+                }
+            });
+        }
+
+        function confirmMapping() {
+            columnMapping = {};
+            const mappableColumns = templateColumns.filter(c => c.mapped);
+
+            getEl('mapper-ui').querySelectorAll('select').forEach(select => {
+                if (select.value) {
+                    columnMapping[select.dataset.key] = select.value;
+                }
+            });
+
+            if (Object.keys(columnMapping).length !== mappableColumns.length) {
+                alert('Error: Please map all required columns before continuing. Each dropdown must have a selection.');
+                return;
+            }
+
+            getEl('mapping-section').classList.add('hidden');
+            getEl('processing-section').classList.remove('hidden');
+        }
+
+        function validateInputs() {
+            let isValid = true;
+            ['village-input', 'block-input', 'district-input'].forEach(id => {
+                const input = getEl(id);
+                if (!input.value) {
+                    input.classList.add('border-red-500');
+                    if (isValid) input.focus();
+                    isValid = false;
+                } else {
+                    input.classList.remove('border-red-500');
+                }
+            });
+            if(!isValid) alert("Please fill in all required report details.");
+            return isValid;
+        }
+        
+        function getProcessedData() {
+            const formatDate = (dateValue) => {
+                if (dateValue instanceof Date) {
+                    let day = ('0' + dateValue.getDate()).slice(-2);
+                    let month = ('0' + (dateValue.getMonth() + 1)).slice(-2);
+                    let year = dateValue.getFullYear();
+                    return `${day}/${month}/${year}`;
+                }
+                if(typeof dateValue === 'number' && dateValue > 1) {
+                    const date = new Date(Math.round((dateValue - 25569)*86400*1000));
+                    let day = ('0' + date.getDate()).slice(-2);
+                    let month = ('0' + (date.getMonth() + 1)).slice(-2);
+                    let year = date.getFullYear();
+                    return `${day}/${month}/${year}`;
+                }
+                return dateValue;
+            };
+
+            return excelData.map(row => {
+                const newRow = {};
+                templateColumns.forEach(tCol => {
+                    let value = '';
+                    if (tCol.mapped && columnMapping[tCol.key]) {
+                        const originalColName = columnMapping[tCol.key];
+                        value = row[originalColName] || '';
+                        if(tCol.isDate) {
+                            value = formatDate(value);
+                        }
+                    }
+                    newRow[tCol.key] = { value };
+                });
+                return newRow;
+            });
+        }
+
+        async function generatePdf() {
+            if (!validateInputs()) return;
+            showLoader(`Generating your PDF file...`);
+
+            setTimeout(() => {
+                try {
+                    const finalColumns = [
+                        ...templateColumns.slice(0, 4),
+                        { key: 'period', label: 'Period' }, 
+                        ...templateColumns.slice(6)
+                    ];
+                    
+                    const reportDetails = {
+                        village: getEl('village-input').value,
+                        block: getEl('block-input').value,
+                        district: getEl('district-input').value,
+                    };
+
+                    const options = {
+                        footerPlacement: getEl('footer-placement').checked ? 'last' : 'each',
+                        meta: { filename: `Verification_Report_${reportDetails.village}`.trim() },
+                        reportDetails,
+                        table: { columns: finalColumns }
+                    };
+
+                    const data = getProcessedData();
+
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({ orientation: 'l' });
+                    const pageHeight = doc.internal.pageSize.getHeight();
+
+                    const drawHeader = () => {
+                        doc.setFontSize(11);
+                        doc.setFont('helvetica', 'bold');
+                        doc.text("Verification Report (Sub-District Level Committee)", doc.internal.pageSize.getWidth() / 2, 10, { align: 'center' });
+                        doc.setFont('helvetica', 'normal');
+                        doc.setFontSize(9);
+                        doc.text(`Block: ${options.reportDetails.block}`, 14, 18);
+                        doc.text(`Village: ${options.reportDetails.village}`, 150, 18);
+                        doc.text(`Verification Date: ____________`, 230, 18);
+                    };
+
+                    const drawFooter = (pageNum) => {
+                        doc.setFontSize(9);
+                        doc.text(`Page ${pageNum}`, doc.internal.pageSize.getWidth() - 25, pageHeight - 5);
+                        doc.text('Village Level Committee:', 14, pageHeight - 25);
+                        doc.text('_________________________', 60, pageHeight - 25);
+                        doc.text('_________________________', 130, pageHeight - 25);
+                        doc.text('_________________________', 200, pageHeight - 25);
+                        doc.text('(Designation)', 75, pageHeight - 20, { align: 'center' });
+                        doc.text('(Designation)', 145, pageHeight - 20, { align: 'center' });
+                        doc.text('(Designation)', 215, pageHeight - 20, { align: 'center' });
+                        doc.text('Block Level Committee:', 14, pageHeight - 12);
+                        doc.text('_________________________', 60, pageHeight - 12);
+                        doc.text('_________________________', 130, pageHeight - 12);
+                        doc.text('_________________________', 200, pageHeight - 12);
+                        doc.text('(Designation)', 75, pageHeight - 7, { align: 'center' });
+                        doc.text('(Designation)', 145, pageHeight - 7, { align: 'center' });
+                        doc.text('(Designation)', 215, pageHeight - 7, { align: 'center' });
+                    };
+
+                    const head = [options.table.columns.map(col => col.label)];
+                    const body = data.map(row => 
+                        options.table.columns.map(col => {
+                            if (col.key === 'period') {
+                                const from = (row.periodFrom || {}).value || '';
+                                const to = (row.periodTo || {}).value || '';
+                                return from && to ? `${from} to ${to}` : from || to;
+                            }
+                            return (row[col.key] || {}).value || '';
+                        })
+                    );
+                    
+                    doc.autoTable({
+                        head,
+                        body,
+                        theme: 'grid',
+                        headStyles: { fontSize: 7, fillColor: [255, 255, 255], textColor: [0,0,0], lineWidth: 0.1, lineColor: [0,0,0] },
+                        bodyStyles: { fontSize: 9, lineWidth: 0.1, lineColor: [0,0,0] },
+                        didDrawPage: (data) => {
+                            drawHeader();
+                            if (options.footerPlacement === 'each') {
+                                drawFooter(data.pageNumber);
+                            }
+                        },
+                        margin: { top: 25, bottom: 30 }
+                    });
+
+                    if (options.footerPlacement === 'last') {
+                        const pageCount = doc.internal.getNumberOfPages();
+                        doc.setPage(pageCount);
+                        drawFooter(pageCount);
+                    }
+
+                    doc.save(`${options.meta.filename}.pdf`);
+                } catch(error) {
+                    alert(`Error generating PDF: ${error.message}`);
+                } finally {
+                    hideLoader();
+                }
+            }, 100);
+        }
+
+        function showLoader(message) {
+            const loader = getEl('loader');
+            getEl('loader-message').textContent = message;
+            loader.classList.remove('hidden');
+            loader.classList.add('flex');
+        }
+
+        function hideLoader() {
+            const loader = getEl('loader');
+            loader.classList.add('hidden');
+            loader.classList.remove('flex');
+        }
+        
+        init();
+    </script>
+</body>
+</html>
+
